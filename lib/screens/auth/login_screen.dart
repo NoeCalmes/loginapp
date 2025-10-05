@@ -1,4 +1,4 @@
-import 'package:firebase1/screens/register_screen.dart';
+import 'package:firebase1/screens/auth/register_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -95,10 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Connexion ok')));
+      // Connexion réussie - redirection automatique via AuthGate
     } on FirebaseAuthException {
       // Message générique (évite de révéler si l'email existe)
       ScaffoldMessenger.of(
@@ -106,6 +103,38 @@ class _LoginScreenState extends State<LoginScreen> {
       ).showSnackBar(SnackBar(content: Text('Identifiants invalides.')));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> resetPassword() async {
+    final email = emailTextController.text.trim().toLowerCase();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Veuillez entrer votre email')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Email de réinitialisation envoyé à $email'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      final msg = switch (e.code) {
+        'user-not-found' => 'Si cet email existe, un lien de réinitialisation a été envoyé',
+        'invalid-email' => 'Email invalide',
+        'too-many-requests' => 'Trop de tentatives. Réessayez plus tard.',
+        _ => 'Si cet email existe, un lien de réinitialisation a été envoyé',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
     }
   }
 
@@ -179,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         recognizer: TapGestureRecognizer()
                           ..onTap = () {
-                            Navigator.push(
+                            Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const RegisterScreen(),
@@ -188,6 +217,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                       ),
                     ],
+                  ),
+                ),
+                SizedBox(height: 8),
+
+                // Bouton mot de passe oublié
+                TextButton(
+                  onPressed: resetPassword,
+                  child: Text(
+                    'Mot de passe oublié ?',
+                    style: TextStyle(
+                      color: Colors.grey[700],
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
                 SizedBox(height: 16),
